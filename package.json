@@ -18,5 +18,13 @@
   "license": "MIT",
   "engines": {
     "node": ">=16"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/SourceCode-code/sid-cypress-rerun-failed"
+  },
+  "bugs": {
+    "url": "https://github.com/SourceCode-code/sid-cypress-rerun-failed/issues"
+  },
+  "homepage": "https://github.com/SourceCode-code/sid-cypress-rerun-failed/blob/main/README.md"
 }
