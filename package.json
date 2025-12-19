@@ -1,5 +1,5 @@
 {
-  "name": "sid-cypress-rerun-failed",
+  "name": "cypress-rerun-failed-specs-sid",
   "version": "1.0.5",
   "description": "Rerun failed Cypress spec files from previous run",
   "main": "src/index.js",
