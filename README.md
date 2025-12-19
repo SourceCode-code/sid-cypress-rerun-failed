@@ -1,4 +1,4 @@
-# ⭐ cypress-rerun-failed-specs-sid
+# ⭐ cypress-rerun-failed-specs-sid-g
 
 A Cypress plugin and CLI tool that automatically **reruns only failed spec files** from the previous Cypress run.  
 It helps reduce flaky failures, saves CI time, and avoids rerunning the entire test suite.
@@ -25,13 +25,13 @@ In real-world Cypress projects:
 Install as a dev dependency:
 
 ```bash
-npm install cypress-rerun-failed-specs-sid --save-dev
+npm install cypress-rerun-failed-specs-sid-g --save-dev
 ```
 
 ## JavaScript cypress.config.js
 
 ```
-const rerunFailed = require("cypress-rerun-failed-specs-sid");
+const rerunFailed = require("cypress-rerun-failed-specs-sid-g");
 
 module.exports = {
   e2e: {
@@ -45,7 +45,7 @@ module.exports = {
 ## TypeScript (cypress.config.ts)
 
 ```
-import rerunFailed from "cypress-rerun-failed-specs-sid";
+import rerunFailed from "cypress-rerun-failed-specs-sid-g";
 import { defineConfig } from "cypress";
 
 export default defineConfig({
@@ -159,7 +159,7 @@ Cross‑platform (Windows / macOS / Linux)
 🧩 TypeScript Support
 TypeScript typings are included.
 
-import rerunFailed from "cypress-rerun-failed-specs-sid";
+import rerunFailed from "cypress-rerun-failed-specs-sid-g";
 📄 License
 MIT
 
