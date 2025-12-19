@@ -1,6 +1,6 @@
 {
   "name": "sid-cypress-rerun-failed",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "Rerun failed Cypress spec files from previous run",
   "main": "src/index.js",
   "types": "types/index.d.ts",
@@ -26,5 +26,5 @@
   "bugs": {
     "url": "https://github.com/SourceCode-code/sid-cypress-rerun-failed/issues"
   },
- "homepage": "https://github.com/SourceCode-code/sid-cypress-rerun-failed#readme"
+  "homepage": "https://github.com/SourceCode-code/sid-cypress-rerun-failed#readme"
 }
