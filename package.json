@@ -1,0 +1,22 @@
+{
+  "name": "sid-cypress-rerun-failed",
+  "version": "1.0.2",
+  "description": "Rerun failed Cypress spec files from previous run",
+  "main": "src/index.js",
+  "types": "types/index.d.ts",
+  "bin": {
+    "cypress-rerun-failed": "bin/cli.js"
+  },
+  "keywords": [
+    "cypress",
+    "cypress-plugin",
+    "rerun",
+    "failed-specs",
+    "ci"
+  ],
+  "author": "Siddhant Arjun Gadakh",
+  "license": "MIT",
+  "engines": {
+    "node": ">=16"
+  }
+}
