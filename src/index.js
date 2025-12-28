@@ -1,79 +1,116 @@
-#!/usr/bin/env node
 const fs = require("fs");
 const path = require("path");
-const { execSync } = require("child_process");
-
-const projectRoot = process.cwd();
-const resultsDir = path.join(projectRoot, "cypress", "results");
-const failedSpecsPath = path.join(
-  projectRoot,
-  "cypress",
-  "failed-specs.json"
-);
 
 /* ----------------------------------
    Helpers
 ----------------------------------- */
-function run(cmd) {
-  console.log(`${cmd}`);
-  execSync(cmd, { stdio: "inherit" });
-}
-
-function cleanupOldFailedSpecReports(reportDir, failedSpecs) {
-  if (!fs.existsSync(reportDir)) return;
-
-  const files = fs.readdirSync(reportDir).filter(f =>
-    f.endsWith(".json")
-  );
-
-  failedSpecs.forEach(specPath => {
-    const specName = path.basename(specPath);
-
-    const matching = files.filter(f =>
-      f.includes(specName)
-    );
-
-    if (matching.length <= 1) return;
-
-    // sort by timestamp in filename
-    matching.sort((a, b) => {
-      const ta = a.match(/fail_(.+?)-/)?.[1] || "";
-      const tb = b.match(/fail_(.+?)-/)?.[1] || "";
-      return ta.localeCompare(tb);
-    });
-
-    // keep latest, delete rest
-    matching.slice(0, -1).forEach(file => {
-      fs.unlinkSync(path.join(reportDir, file));
-      console.log(`Deleted old report: ${file}`);
-    });
-  });
+function safeDelete(filePath) {
+  if (fs.existsSync(filePath)) {
+    fs.unlinkSync(filePath);
+    console.log(`🧹 Removed stale file: ${filePath}`);
+  }
 }
 
 /* ----------------------------------
-   CLI Flow
+   Failed spec detection (robust)
 ----------------------------------- */
-if (!fs.existsSync(failedSpecsPath)) {
-  console.log("No failed-specs.json found. Nothing to rerun.");
-  process.exit(0);
+function getFailedSpecs(reportDir) {
+  if (!fs.existsSync(reportDir)) {
+    console.warn(` Report directory not found: ${reportDir}`);
+    return [];
+  }
+
+  const files = fs.readdirSync(reportDir).filter(f => f.endsWith(".json"));
+  if (!files.length) {
+    console.warn(" No JSON report files found");
+    return [];
+  }
+
+  const failedSpecs = new Set();
+
+  for (const file of files) {
+    const reportPath = path.join(reportDir, file);
+    let report;
+
+    try {
+      report = JSON.parse(fs.readFileSync(reportPath, "utf8"));
+    } catch {
+      console.warn(` Skipping invalid JSON report: ${file}`);
+      continue;
+    }
+
+    if (!report.results) continue;
+
+    for (const result of report.results) {
+      //  Primary (most reliable)
+      if (result.stats?.failures > 0 && result.file) {
+        failedSpecs.add(result.file);
+        continue;
+      }
+
+      // Fallback (deep scan)
+      let hasFailure = false;
+
+      (function walkSuites(suites = []) {
+        for (const suite of suites) {
+          suite.tests?.forEach(test => {
+            if (test.state === "failed") {
+              hasFailure = true;
+            }
+          });
+          walkSuites(suite.suites);
+        }
+      })(result.suites);
+
+      if (hasFailure && result.file) {
+        failedSpecs.add(result.file);
+      }
+    }
+  }
+
+  return [...failedSpecs];
 }
 
-const failedSpecs = JSON.parse(
-  fs.readFileSync(failedSpecsPath, "utf8")
-);
+/* ----------------------------------
+   Cypress plugin entry point
+----------------------------------- */
+function cypressRerunFailed(on, config) {
+  console.log("cypress-rerun-failed initialized");
 
-if (!failedSpecs.length) {
-  console.log("No failed specs to rerun.");
-  process.exit(0);
+  const resultsDir = path.join(
+    config.projectRoot,
+    "cypress",
+    "results"
+  );
+
+  const failedSpecsPath = path.join(
+    config.projectRoot,
+    "cypress",
+    "failed-specs.json"
+  );
+
+  //  Fresh Cypress run → clean stale failed-specs.json
+  on("before:run", () => {
+    safeDelete(failedSpecsPath);
+  });
+
+  //  After run → detect failures & save
+  on("after:run", () => {
+    const failedSpecs = getFailedSpecs(resultsDir);
+
+    if (!failedSpecs.length) {
+      console.log(" No failed specs detected");
+      return;
+    }
+
+    fs.writeFileSync(
+      failedSpecsPath,
+      JSON.stringify(failedSpecs, null, 2)
+    );
+
+    console.log(" Failed specs saved to:", failedSpecsPath);
+  });
 }
 
-//  Rerun failed specs
-run(
-  `npx cypress run --spec "${failedSpecs.join(",")}"`
-);
-
-// Cleanup old reports
-cleanupOldFailedSpecReports(resultsDir, failedSpecs);
-
-// Done
-console.log("✅ Rerun complete. Only latest reports retained.");
+module.exports = cypressRerunFailed;
+module.exports.getFailedSpecs = getFailedSpecs;
