@@ -50,6 +50,24 @@ function getFailedSpecs(reportDir) {
 }
 
 /**
+ * 🧹 Clean old JSON reports
+ * (to avoid duplicate results after rerun)
+ */
+function cleanMochawesomeReports(reportDir) {
+  if (!fs.existsSync(reportDir)) return;
+
+  const files = fs.readdirSync(reportDir);
+
+  files.forEach(file => {
+    if (file.endsWith('.json')) {
+      fs.unlinkSync(path.join(reportDir, file));
+    }
+  });
+
+  console.log('🧹 Old JSON reports removed');
+}
+
+/**
  * Cypress plugin entry point
  */
 function cypressRerunFailed(on, config) {
@@ -78,6 +96,9 @@ function cypressRerunFailed(on, config) {
 
       fs.writeFileSync(outputPath, JSON.stringify(failedSpecs, null, 2));
       console.log('Failed specs saved to:', outputPath);
+
+      // ✅ NEW: clean first-run reports before rerun
+      cleanMochawesomeReports(reportDir);
 
     } catch (err) {
       console.warn('Failed spec detection skipped:', err.message);
