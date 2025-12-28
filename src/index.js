@@ -10,11 +10,34 @@ function safeDelete(filePath) {
   }
 }
 
-function cleanDirectory(dirPath) {
-  if (!fs.existsSync(dirPath)) return;
-  fs.readdirSync(dirPath).forEach(file => {
-    fs.unlinkSync(path.join(dirPath, file));
-  });
+/**
+ * Delete only report files that belong to failed specs
+ */
+function deleteReportsForFailedSpecs(reportDir, failedSpecs) {
+  if (!fs.existsSync(reportDir)) return;
+
+  const reportFiles = fs.readdirSync(reportDir).filter(f =>
+    f.endsWith(".json")
+  );
+
+  for (const file of reportFiles) {
+    const reportPath = path.join(reportDir, file);
+
+    try {
+      const report = JSON.parse(fs.readFileSync(reportPath, "utf8"));
+      if (!report.results) continue;
+
+      for (const result of report.results) {
+        if (failedSpecs.includes(result.file)) {
+          fs.unlinkSync(reportPath);
+          console.log(` Deleted stale report: ${file}`);
+          break;
+        }
+      }
+    } catch {
+      // ignore invalid JSON
+    }
+  }
 }
 
 /* ----------------------------------
@@ -22,13 +45,16 @@ function cleanDirectory(dirPath) {
 ----------------------------------- */
 function getFailedSpecs(reportDir) {
   if (!fs.existsSync(reportDir)) {
-    console.warn("Report directory does not exist");
+    console.warn(" Report directory does not exist");
     return [];
   }
 
-  const files = fs.readdirSync(reportDir).filter(f => f.endsWith(".json"));
+  const files = fs.readdirSync(reportDir).filter(f =>
+    f.endsWith(".json")
+  );
+
   if (!files.length) {
-    console.warn("No JSON reports found");
+    console.warn(" No JSON reports found");
     return [];
   }
 
@@ -36,6 +62,7 @@ function getFailedSpecs(reportDir) {
 
   for (const file of files) {
     let report;
+
     try {
       report = JSON.parse(
         fs.readFileSync(path.join(reportDir, file), "utf8")
@@ -49,12 +76,14 @@ function getFailedSpecs(reportDir) {
     for (const result of report.results) {
       let hasFailure = false;
 
-      (function walk(suites = []) {
+      (function walkSuites(suites = []) {
         for (const suite of suites) {
           suite.tests?.forEach(test => {
-            if (test.state === "failed") hasFailure = true;
+            if (test.state === "failed") {
+              hasFailure = true;
+            }
           });
-          walk(suite.suites);
+          walkSuites(suite.suites);
         }
       })(result.suites);
 
@@ -68,7 +97,7 @@ function getFailedSpecs(reportDir) {
 }
 
 /* ----------------------------------
-   Cypress plugin
+   Cypress plugin entry
 ----------------------------------- */
 function cypressRerunFailed(on, config) {
   const resultsDir = path.join(config.projectRoot, "cypress", "results");
@@ -80,28 +109,30 @@ function cypressRerunFailed(on, config) {
 
   console.log("cypress-rerun-failed initialized");
 
-  //  Fresh run cleanup
-  on("before:run", () => {
-    console.log("🧹 Fresh run: cleaning old reports & failed specs");
-    cleanDirectory(resultsDir);
-    safeDelete(failedSpecsPath);
-  });
-
-  //  Detect failures after run
+  /**
+   * AFTER RUN:
+   * - detect failed specs
+   * - delete ONLY stale reports for failed specs
+   * - save failed-specs.json
+   */
   on("after:run", () => {
     const failedSpecs = getFailedSpecs(resultsDir);
 
     if (!failedSpecs.length) {
-      console.log("No failed specs detected");
+      console.log(" No failed specs detected");
+      safeDelete(failedSpecsPath); // clean old failures
       return;
     }
+
+    //  delete only reports for failed specs
+    deleteReportsForFailedSpecs(resultsDir, failedSpecs);
 
     fs.writeFileSync(
       failedSpecsPath,
       JSON.stringify(failedSpecs, null, 2)
     );
 
-    console.log("Failed specs saved:", failedSpecsPath);
+    console.log(" Failed specs saved:", failedSpecsPath);
   });
 }
 
