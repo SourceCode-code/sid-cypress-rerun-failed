@@ -11,7 +11,7 @@ function safeDelete(filePath) {
 }
 
 /**
- * Delete only report files that belong to failed specs
+ * Delete only reports belonging to failed specs
  */
 function deleteReportsForFailedSpecs(reportDir, failedSpecs) {
   if (!fs.existsSync(reportDir)) return;
@@ -30,18 +30,18 @@ function deleteReportsForFailedSpecs(reportDir, failedSpecs) {
       for (const result of report.results) {
         if (failedSpecs.includes(result.file)) {
           fs.unlinkSync(reportPath);
-          console.log(` Deleted stale report: ${file}`);
+          console.log(`🗑️ Deleted stale report: ${file}`);
           break;
         }
       }
     } catch {
-      // ignore invalid JSON
+      // ignore broken JSON
     }
   }
 }
 
 /* ----------------------------------
-   Failed spec detection
+   Failed spec detection (FIXED)
 ----------------------------------- */
 function getFailedSpecs(reportDir) {
   if (!fs.existsSync(reportDir)) {
@@ -74,14 +74,19 @@ function getFailedSpecs(reportDir) {
     if (!report.results) continue;
 
     for (const result of report.results) {
+      // PRIMARY CHECK (MOST RELIABLE)
+      if (result.stats && result.stats.failures > 0) {
+        failedSpecs.add(result.file);
+        continue;
+      }
+
+      //  FALLBACK: deep test scan
       let hasFailure = false;
 
       (function walkSuites(suites = []) {
         for (const suite of suites) {
           suite.tests?.forEach(test => {
-            if (test.state === "failed") {
-              hasFailure = true;
-            }
+            if (test.state === "failed") hasFailure = true;
           });
           walkSuites(suite.suites);
         }
@@ -109,22 +114,18 @@ function cypressRerunFailed(on, config) {
 
   console.log("cypress-rerun-failed initialized");
 
-  /**
-   * AFTER RUN:
-   * - detect failed specs
-   * - delete ONLY stale reports for failed specs
-   * - save failed-specs.json
-   */
   on("after:run", () => {
     const failedSpecs = getFailedSpecs(resultsDir);
 
     if (!failedSpecs.length) {
-      console.log(" No failed specs detected");
-      safeDelete(failedSpecsPath); // clean old failures
+      console.log("No failed specs detected");
+      safeDelete(failedSpecsPath);
       return;
     }
 
-    //  delete only reports for failed specs
+    console.log("Failed specs detected:", failedSpecs);
+
+    // delete only stale reports for failed specs
     deleteReportsForFailedSpecs(resultsDir, failedSpecs);
 
     fs.writeFileSync(
@@ -132,7 +133,7 @@ function cypressRerunFailed(on, config) {
       JSON.stringify(failedSpecs, null, 2)
     );
 
-    console.log(" Failed specs saved:", failedSpecsPath);
+    console.log("failed-specs.json written");
   });
 }
 
