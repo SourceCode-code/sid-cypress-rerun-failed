@@ -1,167 +1,201 @@
 # ⭐ cypress-rerun-failed-specs-sid-g
 
-A Cypress plugin and CLI tool that automatically **reruns only failed spec files** from the previous Cypress run.  
-It helps reduce flaky failures, saves CI time, and avoids rerunning the entire test suite.
+A Cypress CLI utility that reruns only failed spec files from the previous Cypress run.
 
----
+Designed to reduce flaky failures, save CI time, and avoid rerunning the entire test suite — without abusing Cypress internals.
+
+## ✨ Key Features
+
+✅ Reruns only failed spec files
+
+✅ Works with Mochawesome & Allure
+
+✅ Cleans duplicate failure reports
+
+✅ Handles spaces in spec filenames
+
+✅ Scales to large test suites (Windows-safe batching)
+
+✅ CI-friendly with controlled exit codes
+
+✅ Zero Cypress configuration changes required
 
 ## ❓ What problem does this solve?
 
 In real-world Cypress projects:
 
-- Tests can be **flaky**
-- CI pipelines fail even when reruns would pass
-- Rerunning the **entire suite** is slow and expensive
+Tests can be flaky
 
-### ✅ This plugin solves that by:
-- Detecting **only failed spec files**
-- Rerunning **only those specs**
-- Optionally auto‑rerunning in CI (opt‑in, safe by default)
+CI pipelines fail even though reruns would pass
 
----
+Rerunning the entire suite is slow and costly
+
+✅ This tool solves that by:
+
+Detecting failed spec files from reports
+
+Cleaning old failure artifacts
+
+Rerunning only those specs
+
+Producing clean, deduplicated reports
 
 ## 📦 Installation
 
 Install as a dev dependency:
-
 ```bash
-npm install cypress-rerun-failed-specs-sid-g --save-dev
+npm install --save-dev cypress-rerun-failed-specs-sid-g
 ```
 
-## JavaScript cypress.config.js
+Node.js ≥ 16 required
 
-```
-const rerunFailed = require("cypress-rerun-failed-specs-sid-g");
+## ⚠️ Important Usage Note (Read This)
 
-module.exports = {
-  e2e: {
-    setupNodeEvents(on, config) {
-      rerunFailed(on, config);
-      return config;
-    }
-  }
-};
-```
-## TypeScript (cypress.config.ts)
+🚫 Do NOT import this package in cypress.config.js
+🚫 Do NOT call it from setupNodeEvents
 
-```
-import rerunFailed from "cypress-rerun-failed-specs-sid-g";
-import { defineConfig } from "cypress";
+✅ This tool runs outside Cypress, as a CLI.
 
-export default defineConfig({
-  e2e: {
-    setupNodeEvents(on, config) {
-      rerunFailed(on, config);
-      return config;
-    }
-  }
-});
-```
+This is intentional and required to avoid Cypress recursion and crashes.
 
-▶️ How to Use
+## ▶️ Basic Usage
 Step 1: Run Cypress normally
-```
+```bash
 npx cypress run
 ```
-If any specs fail, the plugin generates:
-```
-cypress/failed-specs.json
-```
-Step 2: Rerun only failed specs
-```
-npx cypress-rerun-failed
-```
-Only the failed spec files from the last run are executed.
 
-⚙️ CLI Commands & Options
-```
-npx cypress-rerun-failed [options]
-```
-Available Options
-Option	Description
-```
---browser <name>	Run in a specific browser (chrome, firefox, edge)
---headed	Run Cypress in headed (UI) mode
---retries <number>	Retry failed specs N times
---help	Show CLI help
-```
-Example Commands
-# Basic rerun
-```
+This generates reporter output (e.g. Mochawesome / Allure).
+
+Step 2: Rerun only failed specs
+```bash
 npx cypress-rerun-failed
 ```
-# Run in Chrome
+
+Only the failed spec files from the previous run are executed.
+
+🔍 Dry Run (No Execution)
+
+Preview failed specs without running Cypress:
+```bash
+npx cypress-rerun-failed --dry-run
 ```
-npx cypress-rerun-failed --browser chrome
+🧹 Cleanup Strategies
+
+Control how old report files are cleaned before rerun.
+
+Delete only old failed reports (default)
+```bash
+npx cypress-rerun-failed --cleanup-strategy=fail
 ```
-# Headed mode
+Delete all report files
+```bash
+npx cypress-rerun-failed --cleanup-strategy=all
 ```
+Do not delete any report files
+```bash
+npx cypress-rerun-failed --cleanup-strategy=none
+```
+## 🧪 Browser & Mode Options
+
+Headed mode
+```bash
 npx cypress-rerun-failed --headed
 ```
-# Retry failed specs twice
+
+Specific browser
+```bash
+npx cypress-rerun-failed --browser chrome
+npx cypress-rerun-failed --browser edge
+npx cypress-rerun-failed --browser firefox
 ```
+
+🔁 Retry Failed Specs
+
+Retry failed specs during rerun:
+```bash
+npx cypress-rerun-failed --retries 1
 npx cypress-rerun-failed --retries 2
 ```
-# Combine options
-```
-npx cypress-rerun-failed --browser chrome --headed --retries 2
-```
-🔁 CI Usage (Optional & Safe)
-Auto‑rerun is disabled by default.
+🧯 CI-Safe Mode (Allow Failures)
 
-Enable via environment variables
-macOS / Linux
+Prevent CI from failing even if rerun tests still fail:
+```bash
+npx cypress-rerun-failed --allow-fail
 ```
-export CYPRESS_RERUN_FAILED=true
-export CYPRESS_RERUN_MAX_ATTEMPTS=2
-```
-Windows (PowerShell)
-```
-$env:CYPRESS_RERUN_FAILED="true"
-$env:CYPRESS_RERUN_MAX_ATTEMPTS="2"
-```
-Example: GitHub Actions
-```
-env:
-  CYPRESS_RERUN_FAILED: "true"
-  CYPRESS_RERUN_MAX_ATTEMPTS: "2"
+Recommended CI pattern
+```bash
+npx cypress run || npx cypress-rerun-failed --allow-fail
 ```
 
-CI Behavior
+📊 Reporter Support
 
-Initial Cypress run executes
-
-Failed specs are detected
-
-Only failed specs are rerun
-
-Stops after max retry attempts
-
-Proper exit codes for CI pipelines
-
-📂 Generated Files
+Auto-detect reporter (default)
+```bash
+npx cypress-rerun-failed --reporter auto
 ```
-cypress/results/*.json	Mochawesome JSON reports
 
-cypress/failed-specs.json	List of failed spec files
+Force Mochawesome
+```bash
+npx cypress-rerun-failed --reporter mochawesome
 ```
-🛡️ Why this plugin is safe
-Auto‑rerun is opt‑in
+Force Allure
+```bash
+npx cypress-rerun-failed --reporter allure
+```
+⚙️ Large Test Suites (Batch Reruns)
 
-Max retry protection (no infinite loops)
+For large suites, reruns are automatically batched to avoid OS command-length limits (especially on Windows).
+
+No configuration required — batching is automatic.
+```bash
+npx cypress-rerun-failed
+```
+🤖 CI Examples
+GitHub Actions / Jenkins
+```bash
+npx cypress run || npx cypress-rerun-failed --allow-fail
+```
+Generate Mochawesome report after rerun
+```bash
+npx mochawesome-merge cypress/results/*.json -o output.json
+npx marge output.json
+```
+
+## 📂 Generated Files
+Path	Description
+```bash
+cypress/results/*.json	Reporter output (Mochawesome)
+cypress/allure-results/*	Allure results
+.cypress-rerun-state.json	Temporary internal state (auto-cleaned)
+```
+
+## 🛡️ Why this tool is safe
+
+Auto-rerun is explicit & opt-in
+
+No Cypress monkey-patching
+
+No infinite rerun loops
 
 No network calls
 
 No postinstall scripts
 
-Cross‑platform (Windows / macOS / Linux)
+Cross-platform (Windows / macOS / Linux)
 
-🧩 TypeScript Support
-TypeScript typings are included.
-
-import rerunFailed from "cypress-rerun-failed-specs-sid-g";
+## 🏆 Summary
+Capability	Supported
+Rerun failed specs only	✅
+Cleanup duplicate reports	✅
+CI-safe execution	✅
+Large test suites	✅
+Mochawesome & Allure	✅
+Windows compatibility	✅
 📄 License
+
 MIT
 
 👤 Author
+
 Siddhant Gadakh
+QA Automation Engineer | Cypress | Node.js | CI Optimization
